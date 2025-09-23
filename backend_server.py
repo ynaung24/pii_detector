@@ -180,11 +180,23 @@ async def get_report(request: ReportRequest):
     try:
         report_path = request.report_path
         
-        if not os.path.exists(report_path):
+        # Sanitize and validate the path to prevent path traversal
+        sanitized_path = os.path.normpath(report_path)
+        if ".." in sanitized_path or sanitized_path.startswith("/"):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        # Ensure the path is within allowed directories
+        allowed_base_dir = os.path.abspath("uploads")
+        full_path = os.path.abspath(os.path.join(allowed_base_dir, sanitized_path))
+        
+        if not full_path.startswith(allowed_base_dir):
+            raise HTTPException(status_code=400, detail="File path outside allowed directory")
+        
+        if not os.path.exists(full_path):
             raise HTTPException(status_code=404, detail="Report file not found")
         
         # Read and parse the report
-        with open(report_path, 'r') as f:
+        with open(full_path, 'r') as f:
             report_data = json.load(f)
         
         return report_data
@@ -209,11 +221,23 @@ async def download_file(request: DownloadRequest):
     try:
         file_path = request.file_path
         
-        if not os.path.exists(file_path):
+        # Sanitize and validate the path to prevent path traversal
+        sanitized_path = os.path.normpath(file_path)
+        if ".." in sanitized_path or sanitized_path.startswith("/"):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        # Ensure the path is within allowed directories
+        allowed_base_dir = os.path.abspath("uploads")
+        full_path = os.path.abspath(os.path.join(allowed_base_dir, sanitized_path))
+        
+        if not full_path.startswith(allowed_base_dir):
+            raise HTTPException(status_code=400, detail="File path outside allowed directory")
+        
+        if not os.path.exists(full_path):
             raise HTTPException(status_code=404, detail="File not found")
         
         # Determine content type based on file extension
-        file_ext = Path(file_path).suffix.lower()
+        file_ext = Path(full_path).suffix.lower()
         content_types = {
             '.csv': 'text/csv',
             '.json': 'application/json',
@@ -226,10 +250,10 @@ async def download_file(request: DownloadRequest):
         content_type = content_types.get(file_ext, 'application/octet-stream')
         
         # Generate filename
-        filename = Path(file_path).name
+        filename = Path(full_path).name
         
         return FileResponse(
-            path=file_path,
+            path=full_path,
             media_type=content_type,
             filename=filename,
             headers={"Content-Disposition": f"attachment; filename={filename}"}
