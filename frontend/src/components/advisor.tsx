@@ -202,7 +202,6 @@ export default function PIIDetectionAdvisor() {
             window.URL.revokeObjectURL(url)
           }, 0)
         }
-        
         toast.success(`${sanitizedFilename} downloaded successfully`)
       } else {
         toast.error('Failed to download file')
