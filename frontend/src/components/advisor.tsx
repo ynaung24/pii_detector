@@ -175,15 +175,34 @@ export default function PIIDetectionAdvisor() {
 
       if (response.ok) {
         const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = sanitizedFilename
-        a.style.display = 'none' // Hide the element
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+        
+        // Use the safest download approach - no DOM manipulation
+        if (window.navigator && (window.navigator as any).msSaveOrOpenBlob) {
+          // Internet Explorer
+          (window.navigator as any).msSaveOrOpenBlob(blob, sanitizedFilename)
+        } else {
+          // Modern browsers - use object URL with minimal DOM interaction
+          const url = window.URL.createObjectURL(blob)
+          
+          // Create link element with minimal properties
+          const link = document.createElement('a')
+          link.setAttribute('href', url)
+          link.setAttribute('download', sanitizedFilename)
+          link.setAttribute('style', 'display: none; position: absolute; left: -9999px;')
+          
+          // Append to body temporarily
+          document.body.appendChild(link)
+          
+          // Trigger download
+          link.click()
+          
+          // Immediate cleanup
+          setTimeout(() => {
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+          }, 0)
+        }
+        
         toast.success(`${sanitizedFilename} downloaded successfully`)
       } else {
         toast.error('Failed to download file')
