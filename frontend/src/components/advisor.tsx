@@ -78,6 +78,16 @@ export default function PIIDetectionAdvisor() {
   const [showMaskedData, setShowMaskedData] = useState(false)
   const [activeView, setActiveView] = useState<'upload' | 'results' | 'report'>('upload')
 
+  // Utility function to sanitize text content and prevent XSS
+  const sanitizeText = (text: string): string => {
+    if (typeof text !== 'string') return ''
+    return text
+      .replace(/[<>]/g, '') // Remove potential HTML tags
+      .replace(/javascript:/gi, '') // Remove javascript: protocol
+      .replace(/on\w+=/gi, '') // Remove event handlers
+      .trim()
+  }
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
     if (file) {
@@ -152,6 +162,9 @@ export default function PIIDetectionAdvisor() {
 
   const downloadFile = async (filePath: string, filename: string) => {
     try {
+      // Sanitize filename to prevent XSS
+      const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+      
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: {
@@ -165,12 +178,13 @@ export default function PIIDetectionAdvisor() {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = filename
+        a.download = sanitizedFilename
+        a.style.display = 'none' // Hide the element
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
-        toast.success(`${filename} downloaded successfully`)
+        toast.success(`${sanitizedFilename} downloaded successfully`)
       } else {
         toast.error('Failed to download file')
       }
@@ -181,7 +195,10 @@ export default function PIIDetectionAdvisor() {
   }
 
   const getEntityIcon = (type: string) => {
-    switch (type.toLowerCase()) {
+    // Sanitize input to prevent XSS
+    const sanitizedType = type.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '')
+    
+    switch (sanitizedType) {
       case 'name':
         return <User className="w-4 h-4" />
       case 'email':
@@ -199,12 +216,15 @@ export default function PIIDetectionAdvisor() {
   }
 
   const getRiskBadge = (risk: string) => {
+    // Sanitize risk level to prevent XSS
+    const sanitizedRisk = risk.toLowerCase().replace(/[^a-zA-Z]/g, '')
+    
     const riskClasses = {
       low: 'badge-success',
       medium: 'badge-warning',
       high: 'badge-danger'
     }
-    return riskClasses[risk as keyof typeof riskClasses] || 'badge-info'
+    return riskClasses[sanitizedRisk as keyof typeof riskClasses] || 'badge-info'
   }
 
   if (activeView === 'upload') {
@@ -245,7 +265,7 @@ export default function PIIDetectionAdvisor() {
                     <FileText className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {uploadedFile.name}
+                        {sanitizeText(uploadedFile.name)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
@@ -439,7 +459,7 @@ export default function PIIDetectionAdvisor() {
                 <div key={type} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                   {getEntityIcon(type)}
                   <div>
-                    <p className="text-sm font-medium text-gray-900 capitalize">{type}</p>
+                    <p className="text-sm font-medium text-gray-900 capitalize">{sanitizeText(type)}</p>
                     <p className="text-xs text-gray-500">{count} detected</p>
                   </div>
                 </div>
@@ -492,7 +512,7 @@ export default function PIIDetectionAdvisor() {
                       <span className="text-xs font-medium text-primary-600">{index + 1}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-700">{recommendation}</p>
+                  <p className="text-sm text-gray-700">{sanitizeText(recommendation)}</p>
                 </li>
               ))}
             </ul>
